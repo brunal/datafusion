@@ -1314,6 +1314,23 @@ mod tests {
         assert!(std::path::Path::new(&path).exists());
         let files = std::fs::read_dir(&path).unwrap();
         assert!(files.count() == 0);
+
+        // Case 4. write an empty RecordBatch to a file.
+        let empty_record_batch = RecordBatch::try_new(
+            Arc::new(Schema::new(vec![Field::new("id", DataType::Int32, false)])),
+            vec![Arc::new(Int32Array::from(Vec::<i32>::new()))],
+        )
+        .expect("Failed to create empty RecordBatch");
+
+        let ctx = SessionContext::new();
+        let df = ctx.read_batch(empty_record_batch)?;
+        let path = format!("{}/empty2.parquet", tmp_dir.path().to_string_lossy());
+        // This currently fails with:
+        // Internal("duplicate entry detected for partitioned file ... already exists with value ...
+        df.write_parquet(&path, crate::dataframe::DataFrameWriteOptions::new(), None)
+            .await?;
+        assert!(std::path::Path::new(&path).exists());
+
         Ok(())
     }
 
